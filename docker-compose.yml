@@ -4,7 +4,7 @@ services:
   shiny:
     build: ./containers/shiny
     ports:
-      - 3838:3838
+      - 80:3838
     volumes:
       - ./app:/srv/shiny-server/
       - ./logs:/var/log/shiny-server/
