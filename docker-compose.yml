@@ -21,5 +21,6 @@ services:
       - ./data:/data
       - ./conf:/usr/local/etc/redis/
       - ./:/local
-    command: ["entrypoint.sh"]
+    tty: true
+    command: ["/entrypoint.sh"]
     #command: ["redis-server", "/usr/local/etc/redis/redis.conf"]

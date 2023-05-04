@@ -6,7 +6,7 @@ import ssl
 import threading
 import logging
 import redis
-
+import os
 from eccodes import (codes_bufr_new_from_file, codes_set, codes_get,
                      codes_release, codes_clone, CODES_MISSING_LONG,
                      CODES_MISSING_DOUBLE, codes_get_native_type,
@@ -153,6 +153,8 @@ def on_connect(client, userdata, flags, rc):
 
 
 def on_message(client, userdata, msg):
+    global processed
+    global last_purge
     LOGGER.error("message received")
     # get time of receipt
     receipt_time = dt.now().isoformat()
@@ -218,7 +220,7 @@ redis = redis.Redis(connection_pool=pool)
 
 LOGGER.error("Loading MQTT config")
 broker = os.getenv('w2gb_broker')
-port = os.getenv('w2gb_port')
+port = int(os.getenv('w2gb_port'))
 pwd = os.getenv('w2gb_pwd')
 uid = os.getenv('w2gb_uid')
 protocol = os.getenv('w2gb_protocol')
