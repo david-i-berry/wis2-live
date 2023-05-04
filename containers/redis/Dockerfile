@@ -26,7 +26,9 @@ ENV DEBIAN_FRONTEND="noninteractive" \
     ECCODES_DIR=/opt/eccodes \
     PATH="${PATH}:/opt/eccodes/bin"
 
-WORKDIR /tmp
+WORKDIR /local
+
+ADD entrypoint.sh ./
 
 RUN apt-get update -y && \
     apt-get install -y redis && \

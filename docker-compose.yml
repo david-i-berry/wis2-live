@@ -12,6 +12,8 @@ services:
     command: ["/usr/bin/shiny-server"]
   redis:
     build: ./containers/redis
+    env_file:
+      - .env
     ports:
       - 6379:6379
       - 3000:3000
@@ -19,4 +21,5 @@ services:
       - ./data:/data
       - ./conf:/usr/local/etc/redis/
       - ./:/local
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    command: ["entrypoint.sh"]
+    #command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
