@@ -9,6 +9,9 @@ Sys.setenv(TZ='UTC')
 
 id <- "7d7d559f-667d-4cf5-9319-bbb3366f4891"
 
+# timw window used for plotting
+time_window <- 24*3600
+
 log <- function(message){
     if( is.list(message) ){
         stop( message )
@@ -54,7 +57,7 @@ server <- function(input, output, session) {
     invalidateLater(1000*30, session) # update every 30 seconds
       isolate({
         log(paste0(Sys.time(), ": Fetching data ...\n"))
-        min_time <- Sys.time() - 60*60
+        min_time <- Sys.time() - time_window
         min_score <- as.numeric(format(min_time, "%s"))
         ids <- connection$ZRANGEBYSCORE("default",min_score,"+inf")
         log(paste0(ids,"\n"))
@@ -67,30 +70,26 @@ server <- function(input, output, session) {
         }
       })
   })
-
   # update clock
   observe({
-    invalidateLater(1000,session)
+    invalidateLater(1000,session) # update every second
     isolate({
-      time_now <- format.POSIXct(Sys.time(),"%Y-%m-%d %H:%M:%S UTC")
-      msg <- paste0("<h1>",time_now,"</h1>","<h2>Messages with a valid location (last hour):</b>",num_messages(),"</h2>")
+      time_now <- format.POSIXct(Sys.time()-time_window,"%Y-%m-%d %H:%M:%S UTC")
+      msg <- paste0("<h4>WIS2 pilot<br/>Surface observations past 24 hours<br/>",num_messages(),"</h4>")
       output$connection_status <- renderText(msg)
     })
   })
-
+  # update map on data changes
   observe({
     obs <- values$obs
     if( !is.null(obs)){
       if( nrow(obs) > 0){
         m <- leafletProxy("map") %>% clearGroup("obs") %>%
-                  addCircles(lat = obs$latitude, lng = obs$longitude, radius = 25*1E3, stroke=TRUE,
-                                   weight=1, color="black", fillColor = "blue", fillOpacity = 0.5, group="obs") %>%
-                  addCircles(lat = obs$latitude, lng = obs$longitude, radius = 100*1E3, color="black", weight=0.5,
-                             fill = TRUE, fillColor="blue", fillOpacity=0.1, group="obs")
+                  addCircleMarkers(lat = obs$latitude, lng = obs$longitude, radius = 5, stroke=TRUE,
+                                   weight=1, color="black", fillColor = "blue", fillOpacity = 0.5, group="obs")
       }
     }
   })
-
 }
 # Run the application
 shinyApp(ui, server)

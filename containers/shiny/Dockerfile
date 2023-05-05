@@ -43,7 +43,7 @@ RUN R -e "install.packages('shiny', repos='cran.rstudio.com')" && \
     R -e 'install.packages(c("htmltools"))' && \
     R -e 'install.packages(c("shinyjs"))' && \
     R -e 'install.packages(c("httr"))' && \
-    R -e 'install.packages(c("redux"))'
+    R -e 'install.packages(c("redux"))'cd
 
 RUN apt-get install -y gdebi-core && \
     wget https://download3.rstudio.org/ubuntu-18.04/x86_64/shiny-server-1.5.20.1002-amd64.deb && \

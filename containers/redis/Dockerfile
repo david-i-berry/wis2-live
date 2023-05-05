@@ -29,6 +29,7 @@ ENV DEBIAN_FRONTEND="noninteractive" \
 WORKDIR /local
 
 COPY entrypoint.sh /
+RUN chmod 744 /entrypoint.sh
 
 RUN apt-get update -y && \
     apt-get install -y redis && \

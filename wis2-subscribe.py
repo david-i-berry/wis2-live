@@ -24,15 +24,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 def get_val(handle, key):
+    val = None
     try:
         val = codes_get(handle, key)
+    except CodesInternalError as e:
+        LOGGER.error(f"ECCODES error {e}")
     except Exception as e:
+        LOGGER.error(f"Error extracting {key}")
         LOGGER.error(e)
-        native_type = codes_get_native_type(handle, key)
-        if native_type in ("int", "float", "double"):
-            val = CODES_MISSING_DOUBLE
-        else:
-            val = ''
     return val
 
 
@@ -41,9 +40,14 @@ def extract(BUFRFile):
     # open BUFR file
     result = []
     temp = tempfile.NamedTemporaryFile()
-    with urllib.request.urlopen(BUFRFile, timeout=10) as response:
-        with open(temp.name, "wb") as fh:
-            fh.write(response.read())
+    try:
+        with urllib.request.urlopen(BUFRFile, timeout=10) as response:
+            with open(temp.name, "wb") as fh:
+                fh.write(response.read())
+    except Exception as e:
+        LOGGER.error(f"Error downloading from {BUFRFile}: {e}")
+        return None
+
     with open(temp.name, "rb") as fh:
         messages = True
         handle = codes_bufr_new_from_file(fh)
@@ -59,7 +63,7 @@ def extract(BUFRFile):
             if 1128 in descriptors:
                 useWSI = True
             else:
-                LOGGER.error(descriptors)
+                LOGGER.error(f"No WSI found in {BUFRFile}, location used as unique ID")
                 useWSI = False
             # get number of subsets
             nsubsets = codes_get(handle, "numberOfSubsets")
@@ -97,7 +101,7 @@ def extract(BUFRFile):
                     x = obs['longitude']
                     y = obs['latitude']
                     obs["wsi_local_identifier"] = f"POINT({x} {y})"
-                LOGGER.error(f"{BUFRFile}: {json.dumps(obs)}")
+                LOGGER.debug(f"{BUFRFile}: {json.dumps(obs)}")
                 result.append(obs)
                 codes_release(single_subset)
             codes_release(handle)
@@ -110,7 +114,7 @@ def extract(BUFRFile):
 # define worker to do the downloads
 def downloadWorker():
     while True:
-        LOGGER.error(urlQ.qsize())
+        LOGGER.info(f"Messages in queue: {urlQ.qsize()}")
         job = urlQ.get() # get latest job from queue
         key = job["key"]
         if key in processed:
@@ -145,17 +149,17 @@ def downloadWorker():
 
 # now MQTT functions etc
 def on_connect(client, userdata, flags, rc):
-    LOGGER.error("connected")
+    LOGGER.info("connected")
     # subscribe to default topics
     for topic in default_topics:
-        LOGGER.error(f"subscribing to {topic}")
+        LOGGER.info(f"subscribing to {topic}")
         client.subscribe(topic)
 
 
 def on_message(client, userdata, msg):
     global processed
     global last_purge
-    LOGGER.error("message received")
+    LOGGER.info("message received")
     # get time of receipt
     receipt_time = dt.now().isoformat()
     # parse message
@@ -169,7 +173,7 @@ def on_message(client, userdata, msg):
     #LOGGER.error(parsed_message)
     publish_time = parsed_message['properties'].get('pubtime', dt.now().isoformat())
     observation_time = parsed_message['properties'].get('datetime', None)
-    integrity =parsed_message['properties'].get('integrity', None)
+    integrity = parsed_message['properties'].get('integrity', None)
     if integrity is not None:
         hash = parsed_message['properties']['integrity']['value']
         hash_method = parsed_message['properties']['integrity']['method']
@@ -198,19 +202,15 @@ def on_message(client, userdata, msg):
     # check whether we need to purge the processed list
     time_now = dt.now()
     time_since_purge = time_now - last_purge
-    if time_since_purge.total_seconds() > 3600:
+    if time_since_purge.total_seconds() > 300:
         processed = purge(processed, time_now)
         last_purge = dt.now()
 
 def purge(p, t):
-    for k,v in p.items:
-        age = v - t
-        if age.total_seconds() > 3600:
-            del p[k]
-    return p
+    return {k:v for k, v in p.items() if (v-t).total_seconds() > 300}
 
 # start worker in the background
-LOGGER.error("Spawning worker")
+LOGGER.info("Spawning worker")
 threading.Thread(target=downloadWorker, daemon=True).start()
 
 
@@ -218,31 +218,18 @@ threading.Thread(target=downloadWorker, daemon=True).start()
 pool = redis.ConnectionPool(host='localhost', port=6379, db=0)
 redis = redis.Redis(connection_pool=pool)
 
-LOGGER.error("Loading MQTT config")
+LOGGER.info("Loading MQTT config")
 broker = os.getenv('w2gb_broker')
 port = int(os.getenv('w2gb_port'))
 pwd = os.getenv('w2gb_pwd')
 uid = os.getenv('w2gb_uid')
 protocol = os.getenv('w2gb_protocol')
 
-default_topics = ["cache/a/wis2/mwi/#",
-                  'cache/a/wis2/arg/#',
-                  'cache/a/wis2/bfa/#',
-                  'cache/a/wis2/chn/#',
-                  'cache/a/wis2/cmr/#',
-                  'cache/a/wis2/cog/#',
-                  'cache/a/wis2/deu/#',
-                  'cache/a/wis2/dza/#',
-                  'cache/a/wis2/gin/#',
-                  'cache/a/wis2/ita/#',
-                  'cache/a/wis2/kor/#',
-                  'cache/a/wis2/mar/#',
-                  'cache/a/wis2/nga/#',
-                  'cache/a/wis2/swe/#',
-                  'cache/a/wis2/usa/#'
+default_topics = [
+                  'cache/a/wis2/+/+/+/+/+/+/synop'
                   ]
 
-LOGGER.error("Initialising client")
+LOGGER.info("Initialising client")
 client = mqtt.Client(transport="websockets")
 client.tls_set(ca_certs=None, certfile=None, keyfile=None,
                cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS,
@@ -250,7 +237,7 @@ client.tls_set(ca_certs=None, certfile=None, keyfile=None,
 client.username_pw_set(uid, pwd)
 client.on_connect = on_connect
 client.on_message = on_message
-LOGGER.error("Connecting")
+LOGGER.info("Connecting")
 result = client.connect(host=broker, port=port)
-LOGGER.error("Looping forever")
+LOGGER.info("Looping forever")
 client.loop_forever()
