@@ -7,8 +7,6 @@ library(redux)
 
 Sys.setenv(TZ='UTC')
 
-id <- "7d7d559f-667d-4cf5-9319-bbb3366f4891"
-
 # timw window used for plotting
 time_window <- 24*3600
 
@@ -42,25 +40,30 @@ server <- function(input, output, session) {
   connection <- redux::hiredis(host="redis",port=6379)
   log("Setting up map\n")
   # setup map
+  map_status <- reactiveVal(FALSE)
   output$map <- renderLeaflet({
     m <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>% addTiles()
-    m <- m %>% setView(lat = 0, lng = 0, zoom = 2)
+    m <- m %>% setView(lat = 0, lng = 0, zoom = 2) %>%
+      setMaxBounds( lng1 = -180
+                , lat1 = -90
+                , lng2 = 180
+                , lat2 = 90 )
     log("map set up\n")
     m
   })
-  log("Setting up reactive values\n")
+
   # reactive to hold cache of messages
   values <- reactiveValues(obs = data.frame() )
   num_messages <- reactiveVal(value=0)
   log("Setting up observer\n")
   observe({
     invalidateLater(1000*30, session) # update every 30 seconds
+      if( map_status() ){
       isolate({
         log(paste0(Sys.time(), ": Fetching data ...\n"))
         min_time <- Sys.time() - time_window
         min_score <- as.numeric(format(min_time, "%s"))
         ids <- connection$ZRANGEBYSCORE("default",min_score,"+inf")
-        log(paste0(ids,"\n"))
         values$obs <- do.call('rbind',lapply( ids, FUN = function(X) { as.data.frame(fromJSON(connection$GET(X), simplifyVector=FALSE))}))
         if( ! is.null(values$obs) ){
           if( nrow(values$obs) > 0 ){
@@ -69,16 +72,24 @@ server <- function(input, output, session) {
           }
         }
       })
+    }
   })
+
+  # observer to detect when map ready
+  observeEvent(input$map_zoom, {
+    map_status(TRUE)
+  })
+
   # update clock
   observe({
     invalidateLater(1000,session) # update every second
     isolate({
       time_now <- format.POSIXct(Sys.time()-time_window,"%Y-%m-%d %H:%M:%S UTC")
-      msg <- paste0("<h4>WIS2 pilot<br/>Surface observations past 24 hours<br/>",num_messages(),"</h4>")
+      msg <- "<h4>WIS2 pilot<br/>Surface stations reporting past 24 hour</h4>"
       output$connection_status <- renderText(msg)
     })
   })
+
   # update map on data changes
   observe({
     obs <- values$obs

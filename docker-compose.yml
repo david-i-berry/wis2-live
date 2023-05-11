@@ -16,11 +16,9 @@ services:
       - .env
     ports:
       - 6379:6379
-      - 3000:3000
     volumes:
-      - ./data:/data
       - ./conf:/usr/local/etc/redis/
       - ./:/local
     tty: true
     command: ["/entrypoint.sh"]
-    #command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+

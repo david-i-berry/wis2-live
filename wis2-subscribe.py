@@ -108,6 +108,7 @@ def extract(BUFRFile):
             handle = codes_bufr_new_from_file(fh)
             if handle is not None:
                 messages = True
+
     return result
 
 
