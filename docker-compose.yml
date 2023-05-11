@@ -10,6 +10,7 @@ services:
       - ./logs:/var/log/shiny-server/
       - ./data:/data/
     command: ["/usr/bin/shiny-server"]
+    restart: always
   redis:
     build: ./containers/redis
     env_file:
@@ -21,4 +22,5 @@ services:
       - ./:/local
     tty: true
     command: ["/entrypoint.sh"]
+    restart: always
 
