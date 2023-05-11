@@ -13,7 +13,6 @@ from eccodes import (codes_bufr_new_from_file, codes_set, codes_get,
                      codes_get_array)
 
 import tempfile
-import urllib.request
 import urllib3
 
 # define queue for storing urls to download
