@@ -231,10 +231,11 @@ default_topics = [
                   ]
 
 LOGGER.info("Initialising client")
-client = mqtt.Client(transport="websockets")
+client = mqtt.Client(transport=protocol)
 client.tls_set(ca_certs=None, certfile=None, keyfile=None,
                cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS,
                ciphers=None)
+
 client.username_pw_set(uid, pwd)
 client.on_connect = on_connect
 client.on_message = on_message
