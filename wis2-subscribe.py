@@ -14,6 +14,7 @@ from eccodes import (codes_bufr_new_from_file, codes_set, codes_get,
 
 import tempfile
 import urllib.request
+import urllib3
 
 # define queue for storing urls to download
 processed = {}
@@ -40,10 +41,11 @@ def extract(BUFRFile):
     # open BUFR file
     result = []
     temp = tempfile.NamedTemporaryFile()
+    http = urllib3.PoolManager()
     try:
-        with urllib.request.urlopen(BUFRFile, timeout=10) as response:
-            with open(temp.name, "wb") as fh:
-                fh.write(response.read())
+        response = http.request("GET", BUFRFile)
+        with open(temp.name, "wb") as fh:
+            fh.write(response.data)
     except Exception as e:
         LOGGER.error(f"Error downloading from {BUFRFile}: {e}")
         return None
@@ -108,7 +110,6 @@ def extract(BUFRFile):
             handle = codes_bufr_new_from_file(fh)
             if handle is not None:
                 messages = True
-
     return result
 
 
@@ -119,9 +120,8 @@ def downloadWorker():
         job = urlQ.get() # get latest job from queue
         key = job["key"]
         if key in processed:
-            LOGGER.error("skipping, file already processed")
+            LOGGER.debug("skipping, file already processed")
             continue
-        processed[key] = dt.now()
         url_ = job["url"]
         # process the data
         subsets = None
@@ -133,6 +133,7 @@ def downloadWorker():
             redis.zadd("error", {url_: zscore})
             LOGGER.error(f"Error extracting data from {url_}")
 
+        processed[key] = dt.now()
         if subsets is not None:
             for subset in subsets:
                 if subset['wsi_local_identifier'] != "":
