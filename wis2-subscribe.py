@@ -40,7 +40,7 @@ def extract(BUFRFile):
     # open BUFR file
     result = []
     temp = tempfile.NamedTemporaryFile()
-    http = urllib3.PoolManager()
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
     try:
         response = http.request("GET", BUFRFile)
         with open(temp.name, "wb") as fh:
@@ -174,6 +174,19 @@ def on_message(client, userdata, msg):
     #LOGGER.error(parsed_message)
     publish_time = parsed_message['properties'].get('pubtime', dt.now().isoformat())
     observation_time = parsed_message['properties'].get('datetime', None)
+
+    if (publish_time is not None) and (observation_time is not None):
+        # make sure data is not too old
+        publish_datetime = dt.fromisoformat(publish_time.replace("T", " ").replace("Z", ""))  # noqa
+        observation_datetime = dt.fromisoformat(observation_time.replace("T", " ").replace("Z", ""))  # noqa
+        # Calculate the time difference
+        time_difference = publish_datetime - observation_datetime
+        if time_difference.total_seconds() > 3600 :
+            LOGGER.error("Data too old, skipping")
+            return
+
+
+
     integrity = parsed_message['properties'].get('integrity', None)
     if integrity is not None:
         hash = parsed_message['properties']['integrity']['value']
