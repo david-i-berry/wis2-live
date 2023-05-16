@@ -32,5 +32,5 @@ COPY entrypoint.sh /
 RUN chmod 744 /entrypoint.sh
 
 RUN apt-get update -y && \
-    apt-get install -y redis && \
-    pip3 install redis grpcio==1.54.0 paho-mqtt eccodes
+    apt-get install -y redis cron && \
+    pip3 install redis grpcio==1.54.0 paho-mqtt eccodes urllib3

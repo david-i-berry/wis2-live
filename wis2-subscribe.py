@@ -48,11 +48,11 @@ def extract(BUFRFile):
     except Exception as e:
         LOGGER.error(f"Error downloading from {BUFRFile}: {e}")
         return None
-
     with open(temp.name, "rb") as fh:
         messages = True
         handle = codes_bufr_new_from_file(fh)
         if handle is None:
+            LOGGER.error(f"Handle is none: {BUFRFile}")
             messages = False
         while messages:
             messages = False
@@ -146,6 +146,7 @@ def downloadWorker():
                     LOGGER.error(f"{url_}: wsi is missing")
 
         urlQ.task_done()
+        LOGGER.debug(f"{urlQ.qsize()} tasks in queue")
 
 
 # now MQTT functions etc
@@ -182,7 +183,7 @@ def on_message(client, userdata, msg):
         # Calculate the time difference
         time_difference = publish_datetime - observation_datetime
         if time_difference.total_seconds() > 3600 :
-            LOGGER.error("Data too old, skipping")
+            LOGGER.error(f"Data {msg.payload} too old, skipping")
             return
 
 
@@ -240,6 +241,7 @@ uid = os.getenv('w2gb_uid')
 protocol = os.getenv('w2gb_protocol')
 
 default_topics = [
+                  'origin/a/wis2/can/eccc-msc/data/core/weather/surface-based-observations/#', # issue with data through JMA, subscribing directly
                   'cache/a/wis2/+/+/+/+/+/+/synop'
                   ]
 

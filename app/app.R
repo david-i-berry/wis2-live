@@ -10,7 +10,7 @@ Sys.setenv(TZ='UTC')
 # timw window used for plotting
 time_window <- 24*3600
 
-log <- function(message){
+logmsg <- function(message){
     if( is.list(message) ){
         stop( message )
     }else{
@@ -34,40 +34,43 @@ ui <- bootstrapPage(
   )
 )
 
-# Define server logic required to draw a histogram
+# Define server logmsgic required to draw a histogram
 server <- function(input, output, session) {
-  log("Connecting to redis\n")
+  logmsg("Connecting to redis\n")
   connection <- redux::hiredis(host="redis",port=6379)
-  log("Setting up map\n")
+  logmsg("Setting up map\n")
   # setup map
   map_status <- reactiveVal(FALSE)
   output$map <- renderLeaflet({
-    m <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>% addTiles()
+    m <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>% addProviderTiles("Esri.WorldTerrain")
     m <- m %>% setView(lat = 0, lng = 0, zoom = 2) %>%
       setMaxBounds( lng1 = -180
                 , lat1 = -90
                 , lng2 = 180
                 , lat2 = 90 )
-    log("map set up\n")
+    logmsg("map set up\n")
     m
   })
 
   # reactive to hold cache of messages
   values <- reactiveValues(obs = data.frame() )
   num_messages <- reactiveVal(value=0)
-  log("Setting up observer\n")
+  logmsg("Setting up observer\n")
   observe({
     invalidateLater(1000*30, session) # update every 30 seconds
       if( map_status() ){
       isolate({
-        log(paste0(Sys.time(), ": Fetching data ...\n"))
+        logmsg(paste0(Sys.time(), ": Fetching data ...\n"))
         min_time <- Sys.time() - time_window
         min_score <- as.numeric(format(min_time, "%s"))
         ids <- connection$ZRANGEBYSCORE("default",min_score,"+inf")
         values$obs <- do.call('rbind',lapply( ids, FUN = function(X) { as.data.frame(fromJSON(connection$GET(X), simplifyVector=FALSE))}))
         if( ! is.null(values$obs) ){
           if( nrow(values$obs) > 0 ){
+            trimmed <- nrow(values$obs)
             values$obs <- subset(values$obs, abs(longitude) < 180 & abs(latitude) < 90)
+            trimmed <- trimmed - nrow(values$obs)
+            logmsg(paste0("Observations trimmed due to missing location: ", trimmed))
             num_messages(nrow(values$obs))
           }
         }
