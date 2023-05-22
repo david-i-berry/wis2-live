@@ -2,6 +2,7 @@
 library(shiny)
 library(shinyjs)
 library(leaflet)
+library(leaflet.extras)
 library(jsonlite)
 library(redux)
 
@@ -26,6 +27,7 @@ ui <- bootstrapPage(
     tags$style(HTML(".leaflet-container { background: #e6f2ff; }")),
     tags$style(type="text/css", "#map.recalculating { opacity: 1.0 !important; }"),
     tags$style(type="text/css", "#connection_status.recalculating { opacity: 1.0!important; }")),
+    tags$style(type="text/css", ".shiny-notification {position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; }"),
   leafletOutput("map"),
   absolutePanel(
     style = "background-color: white; opacity: 0.8",
@@ -42,11 +44,13 @@ server <- function(input, output, session) {
   # setup map
   map_status <- reactiveVal(FALSE)
   output$map <- renderLeaflet({
-    m <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>% addProviderTiles("Esri.WorldTerrain")
+    m <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
+             addTiles(attribution = '<a href="https://public.wmo.int/en/disclaimer">&copy; WMO</a>') %>%
+             addProviderTiles("Esri.WorldTerrain")
     m <- m %>% setView(lat = 0, lng = 0, zoom = 2) %>%
-      setMaxBounds( lng1 = -180
+      setMaxBounds( lng1 = -270
                 , lat1 = -90
-                , lng2 = 180
+                , lng2 = 270
                 , lat2 = 90 )
     logmsg("map set up\n")
     m
@@ -64,7 +68,13 @@ server <- function(input, output, session) {
         min_time <- Sys.time() - time_window
         min_score <- as.numeric(format(min_time, "%s"))
         ids <- connection$ZRANGEBYSCORE("default",min_score,"+inf")
-        values$obs <- do.call('rbind',lapply( ids, FUN = function(X) { as.data.frame(fromJSON(connection$GET(X), simplifyVector=FALSE))}))
+        values$obs <- do.call('rbind',lapply( ids, FUN = function(X) {
+          obs <- fromJSON(connection$GET(X), simplifyVector=FALSE)
+          obs <- lapply(obs, FUN = function(X){
+            rval <- ifelse(is.null(X), NA, X)
+          })
+          as.data.frame(obs)
+        }))
         if( ! is.null(values$obs) ){
           if( nrow(values$obs) > 0 ){
             trimmed <- nrow(values$obs)
@@ -78,8 +88,14 @@ server <- function(input, output, session) {
     }
   })
 
+
+  notification_shown <- reactiveVal(FALSE)
   # observer to detect when map ready
   observeEvent(input$map_zoom, {
+    if( ! notification_shown() ){
+      showNotification("Please note that the data updates every 30 seconds and that there may be a short delay before the first data appears", type = "message")
+      notification_shown(TRUE)
+    }
     map_status(TRUE)
   })
 
