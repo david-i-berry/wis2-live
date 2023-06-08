@@ -7,6 +7,7 @@ kill $(cat p2.pid)
 kill $(cat p3.pid)
 # start new subscriber
 nohup python3 wis2-subscribe.py >& subscribe-`date --iso-8601=minutes`.log &
+sleep 60 # wait 60 seconds to give redis time to start
 # get pid so we can kill if we need to restart
 echo $! > sub.pid
 nohup python3 processor.py 0 >& p0.log &

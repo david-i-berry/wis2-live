@@ -89,9 +89,7 @@ uid = os.getenv('w2gb_uid')
 protocol = os.getenv('w2gb_protocol')
 
 default_topics = [
-                  #'origin/a/wis2/can/eccc-msc/data/core/weather/surface-based-observations/synop/#',
-                  'cache/a/wis2/+/+/+/+/+/+/synop/#'
-                  #"origin/a/wis2/deu/dwd-offenbach/data/core/weather/surface-based-observations/synop"
+                  'cache/a/wis2/+/+/+/core/+/surface-based-observations/#',
                   ]
 
 LOGGER.info("Initialising client")

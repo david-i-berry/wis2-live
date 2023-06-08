@@ -12,7 +12,7 @@ from eccodes import (codes_bufr_new_from_file, codes_set, codes_get,
 import tempfile
 import urllib3
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 def get_val(handle, key):
@@ -32,7 +32,8 @@ def extract(BUFRFile):
     # open BUFR file
     result = []
     temp = tempfile.NamedTemporaryFile()
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+    http = urllib3.PoolManager()
     try:
         response = http.request("GET", BUFRFile)
         with open(temp.name, "wb") as fh:
@@ -40,6 +41,7 @@ def extract(BUFRFile):
     except Exception as e:
         LOGGER.error(f"Error downloading from {BUFRFile}: {e}")
         return None
+
     with open(temp.name, "rb") as fh:
         messages = True
         handle = codes_bufr_new_from_file(fh)
@@ -106,47 +108,43 @@ def extract(BUFRFile):
 def downloadWorker(redis_client, redis_conn):
 
     for msg in redis_client.listen():
-        print(msg)
         job = msg
         if job.get("type", None) == "subscribe":
             print("new sub")
             continue
-        print(job)
         job = json.loads(msg['data'].decode('utf-8'))
         key = job["key"]
         if redis_conn.get(key) != None:
             LOGGER.debug(f"Skipping job {key}, data already processed")
             continue
-        #if key in processed:
-        #    LOGGER.debug("skipping, file already processed")
-        #    continue
+
         url_ = job["url"]
         # process the data
         subsets = None
+        download_error = False
         try:
             subsets = extract(url_)
         except Exception as e:
-            timestamp = dt.fromisoformat(job['receipt_time'])
-            zscore = dt.timestamp(timestamp)
-            redis_conn.zadd("error", {url_: zscore})
+            download_error = True
             LOGGER.error(f"Error extracting data from {url_}: {e}")
 
         if subsets is not None:
             for subset in subsets:
                 if subset['wsi_local_identifier'] != "":
-                    wigos_id = f"{subset['wsi_series']}-{subset['wsi_issuer']}-{subset['wsi_issue_number']}-{subset['wsi_local_identifier']}"
+                    wigos_id = f"{subset['wsi_series']}-{subset['wsi_issuer']}-{subset['wsi_issue_number']}-{subset['wsi_local_identifier']}"  # noqa
                     # first use zadd
                     timestamp = dt.fromisoformat( job['receipt_time'])
                     zscore = dt.timestamp(timestamp)
                     LOGGER.debug(f"zscore: {zscore}, {timestamp}")
                     redis_conn.zadd("default", {wigos_id: zscore})
-                    redis_conn.set(wigos_id, json.dumps(subset))
+                    redis_conn.set(wigos_id, json.dumps(subset), ex = 86400)
                 else:
                     LOGGER.warning(f"{url_}: wsi is missing")
 
-        zscore = dt.timestamp(dt.now())
-        redis_conn.zadd("processed", {key: zscore})
-        redis_conn.set(key, dt.now().isoformat())
+        if not download_error:
+            zscore = dt.timestamp(dt.now())
+            redis_conn.zadd("processed", {key: zscore})
+            redis_conn.set(key, dt.now().isoformat(), ex = 3600)  # noqa
 
 def main(args):
     q_number = args.q
