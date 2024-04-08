@@ -12,12 +12,15 @@ tictoc = 0
 nworkers = 4
 
 # now MQTT functions etc
-def on_connect(client, userdata, flags, rc):
-    LOGGER.info("connected")
-    # subscribe to default topics
-    for topic in default_topics:
-        LOGGER.info(f"subscribing to {topic}")
-        client.subscribe(topic)
+def on_connect(client, userdata, flags, reason_code, properties):
+    if reason_code == 0:
+        LOGGER.info("connected")
+        # subscribe to default topics
+        for topic in default_topics:
+            LOGGER.info(f"subscribing to {topic}")
+            client.subscribe(topic)
+    else:
+        LOGGER.error("Error connecting to global broker")
 
 
 def on_message(client, userdata, msg):
@@ -35,6 +38,9 @@ def on_message(client, userdata, msg):
     url_ = None
     publish_time = parsed_message['properties'].get('pubtime', dt.now().isoformat())
     observation_time = parsed_message['properties'].get('datetime', None)
+    if observation_time is not None:
+        observation_time = observation_time[0:19]
+    publish_time = publish_time[0:19]
     LOGGER.debug("Checking pubtime")
     if (publish_time is not None) and (observation_time is not None):
         # make sure data is not too old
@@ -89,11 +95,16 @@ uid = os.getenv('w2gb_uid')
 protocol = os.getenv('w2gb_protocol')
 
 default_topics = [
-                  'cache/a/wis2/+/+/+/core/+/surface-based-observations/#',
-                  ]
+                    'cache/a/wis2/+/data/core/weather/surface-based-observations/#',
+                    'cache/a/wis2/+/+/data/core/weather/surface-based-observations/#',
+                    'cache/a/wis2/de-dwd-gts-to-wis2/data/core/I/S/A/#',
+                    'cache/a/wis2/de-dwd-gts-to-wis2/data/core/I/S/I/#',
+                    'cache/a/wis2/de-dwd-gts-to-wis2/data/core/I/S/M/#',
+                    'cache/a/wis2/de-dwd-gts-to-wis2/data/core/I/S/N/#',
+                 ]
 
 LOGGER.info("Initialising client")
-client = mqtt.Client(transport=protocol)
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, transport=protocol)
 if port in (443, 8883):
     client.tls_set(ca_certs=None, certfile=None, keyfile=None,
                    cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS,

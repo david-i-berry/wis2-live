@@ -46,7 +46,7 @@ server <- function(input, output, session) {
   map_status <- reactiveVal(FALSE)
   output$map <- renderLeaflet({
     m <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
-             addProviderTiles("Esri.WorldTerrain")
+             addProviderTiles("Esri.WorldShadedRelief")
     m <- m %>% setView(lat = 0, lng = 0, zoom = 2) %>%
       setMaxBounds( lng1 = -270
                 , lat1 = -90
@@ -61,7 +61,7 @@ server <- function(input, output, session) {
   num_messages <- reactiveVal(value=0)
   logmsg("Setting up observer\n")
   observe({
-    invalidateLater(1000*30, session) # update every 30 seconds
+    invalidateLater(1000*300, session) # update every 30 seconds
       if( map_status() ){
       isolate({
         logmsg(paste0(Sys.time(), ": Fetching data ...\n"))
@@ -108,7 +108,7 @@ server <- function(input, output, session) {
       <h3>About</h3>
       <p>Every point shown on the map indicates the location of a station where an observation has been received in the last 24 hours via the WIS2.0 pilot phase,
       with locations taken from the decoded BUFR messages. Please note, due to the large number of stations there may be a short delay before the first data
-      appear. The map is refreshed every 30 seconds.</p>
+      appear. The map auto refreshes every 5 minutes.</p>
       <p>Click on the x to close this window.</p>
       </body>"), duration=30, type = "message")
       notification_shown(TRUE)
@@ -125,8 +125,8 @@ server <- function(input, output, session) {
         obsid <- paste(obs$wsi_series, obs$wsi_issuer, obs$wsi_issue_number, obs$wsi_local_identifier, sep="-")
         label <- paste0("(",obstime,") ", obsid)
         m <- leafletProxy("map") %>% clearGroup("obs") %>%
-                  addCircleMarkers(lat = obs$latitude, lng = obs$longitude, radius = 5, stroke=TRUE, label = label,
-                                   weight=1, color="black", fillColor = "blue", fillOpacity = 0.5, group="obs")
+                  addCircleMarkers(lat = obs$latitude, lng = obs$longitude, radius = 5*obs$plot_size, stroke=TRUE, label = label,
+                                   weight=1, color=obs$plot_colour, fillColor = obs$plot_colour, fillOpacity = 0.5, group="obs")
       }
     }
   })

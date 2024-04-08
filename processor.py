@@ -28,7 +28,7 @@ def get_val(handle, key):
 
 
 # python function to extract latitude, longitude, time, elevation from BUFR message
-def extract(BUFRFile):
+def extract(BUFRFile, topic):
     # open BUFR file
     result = []
     temp = tempfile.NamedTemporaryFile()
@@ -41,6 +41,17 @@ def extract(BUFRFile):
     except Exception as e:
         LOGGER.error(f"Error downloading from {BUFRFile}: {e}")
         return None
+
+    # check if 'de-dwd-gts-to-wis2' in topic
+    if 'de-dwd-gts-to-wis2' in topic:
+        plot_colour = 'cyan'
+        plot_size = 0.5
+        source_ = "g"
+    else:
+        plot_colour = 'blue'
+        plot_size = 1.0
+        source_ = "w"
+
 
     with open(temp.name, "rb") as fh:
         messages = True
@@ -82,7 +93,10 @@ def extract(BUFRFile):
                     "wind_speed": get_val(single_subset, "#1#windSpeed"),
                     "wind_direction": get_val(single_subset, "#1#windDirection"),
                     "air_temperature": get_val(single_subset, "#1#airTemperature"),
-                    "dewpoint_temperature": get_val(single_subset, "#1#dewpointTemperature")
+                    "dewpoint_temperature": get_val(single_subset, "#1#dewpointTemperature"),
+                    "plot_colour": plot_colour,
+                    "plot_size": plot_size,
+                    "source": source_
                 }
                 if useWSI:
                     obs["wsi_series"] = get_val(single_subset, '#1#wigosIdentifierSeries')
@@ -122,8 +136,9 @@ def downloadWorker(redis_client, redis_conn):
         # process the data
         subsets = None
         download_error = False
+        topic = job.get('topic')
         try:
-            subsets = extract(url_)
+            subsets = extract(url_, topic)
         except Exception as e:
             download_error = True
             LOGGER.error(f"Error extracting data from {url_}: {e}")
@@ -132,6 +147,8 @@ def downloadWorker(redis_client, redis_conn):
             for subset in subsets:
                 if subset['wsi_local_identifier'] != "":
                     wigos_id = f"{subset['wsi_series']}-{subset['wsi_issuer']}-{subset['wsi_issue_number']}-{subset['wsi_local_identifier']}"  # noqa
+                    s = subset.get("source","u")
+                    wigos_id = f"{wigos_id}_{s}"
                     # first use zadd
                     timestamp = dt.fromisoformat( job['receipt_time'])
                     zscore = dt.timestamp(timestamp)
