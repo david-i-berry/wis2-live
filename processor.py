@@ -20,7 +20,7 @@ def get_val(handle, key):
     try:
         val = codes_get(handle, key)
     except CodesInternalError as e:
-        LOGGER.error(f"ECCODES error {e}")
+        LOGGER.error(f"ECCODES error {e}, {key}")
     except Exception as e:
         LOGGER.error(f"Error extracting {key}")
         LOGGER.error(e)
