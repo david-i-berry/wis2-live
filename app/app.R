@@ -23,7 +23,7 @@ logmsg <- function(message){
 
 # Define UI
 ui <- dashboardPage(
-  dashboardHeader(disable = FALSE, title = "WIS2.0 Pilot (Surface stations reporting past 24 hours)", titleWidth=600),
+  dashboardHeader(disable = FALSE, title = "WIS 2.0: Surface stations reporting core data (past 24 hours)", titleWidth=650),
   dashboardSidebar(disable = TRUE),
   dashboardBody(
     tags$head(
@@ -39,6 +39,11 @@ ui <- dashboardPage(
 
 # Define server logmsgic required to draw a histogram
 server <- function(input, output, session) {
+  plotColours <- c(
+    rgb(122/255,182/255,74/255,1),
+    rgb(0/255,90/255,170/255,1),
+    rgb(245/255,167/255,41/255, 1)
+  )
   logmsg("Connecting to redis\n")
   connection <- redux::hiredis(host="redis",port=6379)
   logmsg("Setting up map\n")
@@ -46,13 +51,18 @@ server <- function(input, output, session) {
   map_status <- reactiveVal(FALSE)
   output$map <- renderLeaflet({
     m <- leaflet(options = leafletOptions(zoomControl = FALSE)) %>%
-             addProviderTiles("Esri.WorldShadedRelief")
-    m <- m %>% setView(lat = 0, lng = 0, zoom = 2) %>%
+             addProviderTiles("Esri.WorldShadedRelief") %>%
+             addLegend(position="topleft",
+                       labels=c("Surface data - land", "Surface data - sea", "Vertical soundings (other than satellite)"),
+                       colors=plotColours, opacity=1.0
+             )
+
+    m <- m %>% setView(lat=0, lng=0, zoom = 3) %>%
       setMaxBounds( lng1 = -270
                 , lat1 = -90
                 , lng2 = 270
                 , lat2 = 90 )
-    logmsg("map set up\n")
+    logmsg("Map set up\n")
     m
   })
 
@@ -68,6 +78,7 @@ server <- function(input, output, session) {
         min_time <- Sys.time() - time_window
         min_score <- as.numeric(format(min_time, "%s"))
         ids <- connection$ZRANGEBYSCORE("default",min_score,"+inf")
+        logmsg(paste0("Data fetched, converting to data frame\n"))
         values$obs <- do.call('rbind',lapply( ids, FUN = function(X) {
           obs <- fromJSON(connection$GET(X), simplifyVector=FALSE)
           obs <- lapply(obs, FUN = function(X){
@@ -77,6 +88,7 @@ server <- function(input, output, session) {
         }))
         if( ! is.null(values$obs) ){
           if( nrow(values$obs) > 0 ){
+            logmsg(paste0("Trimming data for missing location ...\n"))
             # wrap
             east <- values$obs[which( values$obs$longitude > 0),]
             east$longitude <- east$longitude - 360
@@ -87,7 +99,7 @@ server <- function(input, output, session) {
             trimmed <- nrow(values$obs)
             values$obs <- subset(values$obs, abs(longitude) < 360 & abs(latitude) < 90)
             trimmed <- trimmed - nrow(values$obs)
-            logmsg(paste0("Observations trimmed due to missing location: ", trimmed))
+            logmsg(paste0("Observations trimmed: ", trimmed,"\n"))
             num_messages(nrow(values$obs))
           }
         }
@@ -121,12 +133,15 @@ server <- function(input, output, session) {
     obs <- values$obs
     if( !is.null(obs)){
       if( nrow(obs) > 0){
+        obs <- obs[order(obs$data_category),]
         obstime <- sprintf("%04d-%02d-%02d %02d:%02dZ", obs$year, obs$month, obs$day, obs$hour, obs$minute)
         obsid <- paste(obs$wsi_series, obs$wsi_issuer, obs$wsi_issue_number, obs$wsi_local_identifier, sep="-")
+        obsid <- ifelse(substr(obsid,1,1)=="1","WSI MISSING",obsid)
         label <- paste0("(",obstime,") ", obsid)
         m <- leafletProxy("map") %>% clearGroup("obs") %>%
-                  addCircleMarkers(lat = obs$latitude, lng = obs$longitude, radius = 5*obs$plot_size, stroke=TRUE, label = label,
-                                   weight=1, color=obs$plot_colour, fillColor = obs$plot_colour, fillOpacity = 0.5, group="obs")
+                  addCircleMarkers(lat = obs$latitude, lng = obs$longitude, radius = 3, stroke=TRUE, label = label,
+                                   weight=0.25, color='black',
+                                   fillColor = plotColours[obs$data_category+1], fillOpacity = 1, group="obs")
       }
     }
   })

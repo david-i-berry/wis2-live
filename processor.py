@@ -42,17 +42,6 @@ def extract(BUFRFile, topic):
         LOGGER.error(f"Error downloading from {BUFRFile}: {e}")
         return None
 
-    # check if 'de-dwd-gts-to-wis2' in topic
-    if 'de-dwd-gts-to-wis2' in topic:
-        plot_colour = 'cyan'
-        plot_size = 0.5
-        source_ = "g"
-    else:
-        plot_colour = 'blue'
-        plot_size = 1.0
-        source_ = "w"
-
-
     with open(temp.name, "rb") as fh:
         messages = True
         handle = codes_bufr_new_from_file(fh)
@@ -94,9 +83,8 @@ def extract(BUFRFile, topic):
                     "wind_direction": get_val(single_subset, "#1#windDirection"),
                     "air_temperature": get_val(single_subset, "#1#airTemperature"),
                     "dewpoint_temperature": get_val(single_subset, "#1#dewpointTemperature"),
-                    "plot_colour": plot_colour,
-                    "plot_size": plot_size,
-                    "source": source_
+                    "data_category": get_val(single_subset,"dataCategory"),
+                    "data_sub_category": get_val(single_subset, "internationalDataSubCategory")
                 }
                 if useWSI:
                     obs["wsi_series"] = get_val(single_subset, '#1#wigosIdentifierSeries')

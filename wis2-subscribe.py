@@ -97,10 +97,7 @@ protocol = os.getenv('w2gb_protocol')
 default_topics = [
                     'cache/a/wis2/+/data/core/weather/surface-based-observations/#',
                     'cache/a/wis2/+/+/data/core/weather/surface-based-observations/#',
-                    'cache/a/wis2/de-dwd-gts-to-wis2/data/core/I/S/A/#',
-                    'cache/a/wis2/de-dwd-gts-to-wis2/data/core/I/S/I/#',
-                    'cache/a/wis2/de-dwd-gts-to-wis2/data/core/I/S/M/#',
-                    'cache/a/wis2/de-dwd-gts-to-wis2/data/core/I/S/N/#',
+                    'cache/a/wis2/us-ucsd-scripps-ldl/data/core/weather/experimental/surface-based-observations/buoy'
                  ]
 
 LOGGER.info("Initialising client")
