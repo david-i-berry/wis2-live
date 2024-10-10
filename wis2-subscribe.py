@@ -197,8 +197,8 @@ def on_message(client, userdata, msg):
         hash_method = None
 
     for link in parsed_message['links']:
-        if (link.get('rel', None) == 'canonical') and (link.get('type', None) == 'application/x-bufr'):
-            url_ = link.get('href', None)
+        if link.get('rel') == 'canonical' and link.get('type') in ['application/bufr', 'application/x-bufr']:
+            url_ = link.get('href')
 
     if (url_ is not None) and (url_ not in processed):
         # check whether we have processed already
