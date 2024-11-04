@@ -34,6 +34,7 @@ def on_message(client, userdata, msg):
     topic = msg.topic
     url_ = None
     publish_time = parsed_message['properties'].get('pubtime', dt.now().isoformat())
+    publish_time = publish_time[0:19]
     observation_time = parsed_message['properties'].get('datetime', None)
     LOGGER.debug("Checking pubtime")
     if (publish_time is not None) and (observation_time is not None):
@@ -57,7 +58,7 @@ def on_message(client, userdata, msg):
 
     for link in parsed_message['links']:
         if (link.get('rel', None) == 'canonical') and \
-                (link.get('type', None) in ('application/x-bufr', 'application/octet-stream')):
+                (link.get('type', None) in ('application/x-bufr', 'application/octet-stream', 'application/bufr')):
             url_ = link.get('href', None)
     LOGGER.debug("Creating job")
     if url_ is not None:
@@ -89,7 +90,9 @@ uid = os.getenv('w2gb_uid')
 protocol = os.getenv('w2gb_protocol')
 
 default_topics = [
-                  'cache/a/wis2/+/+/+/core/+/surface-based-observations/#',
+                  'cache/a/wis2/+/+/data/core/+/surface-based-observations/#',
+                  'cache/a/wis2/+/data/core/+/surface-based-observations/#',
+                  'cache/a/wis2/us-ucsd-scripps-ldl/data/core/weather/experimental/surface-based-observations/#',
                   ]
 
 LOGGER.info("Initialising client")

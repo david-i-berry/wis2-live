@@ -23,7 +23,7 @@ logmsg <- function(message){
 
 # Define UI
 ui <- dashboardPage(
-  dashboardHeader(disable = FALSE, title = "WIS2.0 Pilot (Surface stations reporting past 24 hours)", titleWidth=600),
+  dashboardHeader(disable = FALSE, title = "WIS2.0: surface stations reporting past 24 hours", titleWidth=600),
   dashboardSidebar(disable = TRUE),
   dashboardBody(
     tags$head(
@@ -61,7 +61,7 @@ server <- function(input, output, session) {
   num_messages <- reactiveVal(value=0)
   logmsg("Setting up observer\n")
   observe({
-    invalidateLater(1000*30, session) # update every 30 seconds
+    invalidateLater(1000*3000, session) # update every 30 seconds
       if( map_status() ){
       isolate({
         logmsg(paste0(Sys.time(), ": Fetching data ...\n"))
@@ -108,7 +108,7 @@ server <- function(input, output, session) {
       <h3>About</h3>
       <p>Every point shown on the map indicates the location of a station where an observation has been received in the last 24 hours via the WIS2.0 pilot phase,
       with locations taken from the decoded BUFR messages. Please note, due to the large number of stations there may be a short delay before the first data
-      appear. The map is refreshed every 30 seconds.</p>
+      appear. The map is refreshed every 5 minutes.</p>
       <p>Click on the x to close this window.</p>
       </body>"), duration=30, type = "message")
       notification_shown(TRUE)
@@ -125,7 +125,7 @@ server <- function(input, output, session) {
         obsid <- paste(obs$wsi_series, obs$wsi_issuer, obs$wsi_issue_number, obs$wsi_local_identifier, sep="-")
         label <- paste0("(",obstime,") ", obsid)
         m <- leafletProxy("map") %>% clearGroup("obs") %>%
-                  addCircleMarkers(lat = obs$latitude, lng = obs$longitude, radius = 5, stroke=TRUE, label = label,
+                  addCircleMarkers(lat = obs$latitude, lng = obs$longitude, radius = 2, stroke=TRUE, label = label,
                                    weight=1, color="black", fillColor = "blue", fillOpacity = 0.5, group="obs")
       }
     }
